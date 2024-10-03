@@ -1,0 +1,62 @@
+{
+    "button1": {
+        "value": "",
+        "modifier": "copy",
+        "text": "COPY"
+    },
+    "button2": {
+        "value": "C:/Users/alex/Desktop",
+        "modifier": "open",
+        "text": "GO TO DESKTOP"
+    },
+    "button3": {
+        "value": "C:/Users/alex/Downloads",
+        "modifier": "open",
+        "text": "OPEN DOWNLOADS FOLDER"
+    },
+    "button4": {
+        "value": "C:/Users/alex/Documents",
+        "modifier": "open",
+        "text": "OPEN DOCUMENTS FOLDER"
+    },
+    "button5": {
+        "value": "",
+        "modifier": "paste",
+        "text": "PASTE"
+    },
+    "button6": {
+        "value": "C:\\Program Files\\SOLIDWORKS Corp\\SOLIDWORKS\\SLDWORKS.exe",
+        "modifier": "open",
+        "text": "LAUNCH SOLIDWORKS"
+    },
+    "button7": {
+        "value": "C:\\Program Files (x86)\\Arduino\\arduino.exe",
+        "modifier": "open",
+        "text": "LAUNCH ARDUINO"
+    },
+    "button8": {
+        "value": "https://chatgpt.com/",
+        "modifier": "open",
+        "text": "GO TO CHATGPT"
+    },
+    "button9": {
+        "value": "",
+        "modifier": "screenshot",
+        "text": "WINDOWED SCREENSHOT"
+    },
+    "button10": {
+        "value": "C:/Users/alex/Documents/GitHub",
+        "modifier": "open",
+        "text": "OPEN GITHUB FOLDER"
+    },
+    "button11": {
+        "value": "C:\\Users\\alex\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe",
+        "modifier": "open",
+        "text": "LAUNCH GITHUB DESKTOP"
+    },
+    "button12": {
+        "value": "https://github.com/drfhaust",
+        "modifier": "open",
+        "text": "GITHUB WEBPAGE"
+    }
+}
