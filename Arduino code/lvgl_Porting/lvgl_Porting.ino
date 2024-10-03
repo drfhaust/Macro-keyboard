@@ -352,7 +352,7 @@ if (digitalRead(slaveConnectionPin) == LOW) {
     if (buttonPressed > 0) {
       Serial.print("Button ");
       Serial.print(buttonPressed);
-       handleModifier(buttonModifiers[buttonPressed-1], buttonValues[buttonPressed-1buttonPressed-1]);
+       handleModifier(buttonModifiers[buttonPressed-1], buttonValues[buttonPressed-1]);
       Serial.println(" is pressed.");
     } else {
       Serial.println("No button is pressed.");
