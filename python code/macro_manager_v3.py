@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import json
 import webbrowser
+import traceback  # To help with printing stack traces for errors
+
 
 class MacroManagerApp:
     def __init__(self, master):
@@ -111,73 +113,26 @@ class MacroManagerApp:
         self.select_directory_button = ttk.Button(control_frame, text="Select Save Directory", command=self.select_save_directory)
         self.select_directory_button.pack(side="left", padx=10)
 
-        # Credits section (new container below the keypad)
-        credits_frame = tk.Frame(self.master, bg="black")
-        credits_frame.pack(side="bottom", padx=10, pady=10, fill="x", anchor="s")  # Separate container below keypad
-        
-        credits_label = tk.Label(credits_frame, text="Developed by Daniel Olaifa", fg="white", bg="black")
-        credits_label.pack(side="left", padx=10)
-        
-        github_link = tk.Label(credits_frame, text="Visit my GitHub", fg="blue", bg="black", cursor="hand2")
-        github_link.pack(side="left", padx=10)
-        github_link.bind("<Button-1>", lambda e: webbrowser.open_new_tab('https://github.com/drfhaust'))
-        
-        portfolio_link = tk.Label(credits_frame, text="Visit my Portfolio", fg="blue", bg="black", cursor="hand2")
-        portfolio_link.pack(side="left", padx=10)
-        portfolio_link.bind("<Button-1>", lambda e: webbrowser.open_new_tab('https://www.oluwadara.tech/aboutme'))
-
     def set_modifier(self, modifier):
-        """Set the active modifier and update the UI."""
         self.active_modifier = modifier
-        # Update the buttons to reflect the current active modifier
         for mod, btn in self.modifier_buttons.items():
             if mod == modifier:
                 btn.config(relief="sunken", bg="lightblue")
             else:
                 btn.config(relief="raised", bg="SystemButtonFace")
 
-        if modifier in ["open", "paste"]:
-            self.browse_button.grid(row=0, column=2, padx=10, pady=5, sticky="ew")
-        else:
-            self.browse_button.grid_forget()
-
     def select_button(self, button_number):
-        """This function is called when a button in the grid is pressed."""
         button_name = f"button{button_number}"
         self.update_active_button(button_name=button_name)
 
-        # Load the macro into the form for editing
-        if button_name in self.macros:
-            macro = self.macros[button_name]
-            self.value_entry.delete(0, tk.END)
-            self.value_entry.insert(0, macro["value"])
-            self.text_entry.delete(0, tk.END)
-            self.text_entry.insert(0, macro["text"])
-            self.set_modifier(macro["modifier"])
-
-        # Highlight the corresponding macro in the TreeView
-        for item in self.tree.get_children():
-            values = self.tree.item(item, "values")
-            if values[0] == button_name:
-                self.tree.selection_set(item)
-                self.tree.focus(item)
-                self.tree.item(item, tags=("selected",))
-                self.tree.tag_configure("selected", background="red")
-            else:
-                self.tree.item(item, tags=("unselected",))
-                self.tree.tag_configure("unselected", background="white")
-
     def update_active_button(self, button_name=None):
-        """Highlight the active button and reset the previously highlighted button."""
         if self.active_button and self.active_button != button_name:
             self.buttons[self.active_button].config(bg="SystemButtonFace")
-
         if button_name in self.buttons:
             self.buttons[button_name].config(bg="lightblue")
             self.active_button = button_name
 
     def add_macro(self):
-        """Add or update the macro for the selected button."""
         button_name = self.active_button
         value = self.value_entry.get().strip()
         text = self.text_entry.get().strip()
@@ -193,90 +148,71 @@ class MacroManagerApp:
         self.macros[button_name] = {"value": value, "modifier": modifier, "text": text}
         self.refresh_treeview()
 
-        self.value_entry.delete(0, tk.END)
-        self.text_entry.delete(0, tk.END)
-        self.active_modifier = None
-        self.set_modifier("")
-
     def refresh_treeview(self):
-        """Refresh the Treeview to display current macros."""
         for item in self.tree.get_children():
             self.tree.delete(item)
         for button, macro in self.macros.items():
             self.tree.insert("", "end", values=(button, macro["modifier"], macro["value"], macro["text"]))
 
     def save_json(self):
-        """Save macros to a JSON file."""
-        if not self.macros:
-            messagebox.showwarning("No Macros", "No macros to save.")
-            return
+        """Save macros to a JSON file with error printing."""
+        try:
+            if not self.macros:
+                messagebox.showwarning("No Macros", "No macros to save.")
+                return
 
-        file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")], title="Save JSON File")
-        if not file_path:
-            return
+            file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")], title="Save JSON File")
+            if not file_path:
+                return
 
-        with open(file_path, 'w') as json_file:
-            json.dump(self.macros, json_file, indent=4)
+            # Encrypt and save the JSON data
+            json_data = json.dumps(self.macros, indent=4)
+            encryption_key = "securekey"  # Simple XOR key
+            encrypted_data = self.xor_encrypt_decrypt(json_data, encryption_key)
 
-        messagebox.showinfo("Success", f"Macros saved to {file_path}")
+            with open(file_path, 'w') as json_file:
+                json_file.write(encrypted_data)
+
+            messagebox.showinfo("Success", f"Macros saved to {file_path}")
+        except Exception as e:
+            print("Error saving JSON file:")
+            print(traceback.format_exc())  # This will print the full error traceback to help debug
 
     def load_json(self):
-        """Load macros from a JSON file."""
-        file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")], title="Open JSON File")
-        if not file_path:
-            return
+        """Load macros from a JSON file with error printing."""
+        try:
+            file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")], title="Open JSON File")
+            if not file_path:
+                return
 
-        with open(file_path, 'r') as json_file:
-            self.macros = json.load(json_file)
+            encryption_key = "securekey"
 
-        self.refresh_treeview()
+            with open(file_path, 'r') as json_file:
+                encrypted_data = json_file.read()
 
-    def select_save_directory(self):
-        """Select a directory for saving the JSON file."""
-        self.save_directory = filedialog.askdirectory()
-        if self.save_directory:
-            messagebox.showinfo("Directory Selected", f"Default save directory: {self.save_directory}")
+            decrypted_data = self.xor_encrypt_decrypt(encrypted_data, encryption_key)
+            self.macros = json.loads(decrypted_data)
 
-    def select_file_folder(self):
-        """Open a file or folder selection dialog based on the modifier."""
-        if self.active_modifier == "open":
-            file_selected = filedialog.askopenfilename()
-            if file_selected:
-                self.value_entry.delete(0, tk.END)
-                self.value_entry.insert(0, file_selected)
-        elif self.active_modifier == "paste":
-            folder_selected = filedialog.askdirectory()
-            if folder_selected:
-                self.value_entry.delete(0, tk.END)
-                self.value_entry.insert(0, folder_selected)
+            self.refresh_treeview()
+        except Exception as e:
+            print("Error loading JSON file:")
+            print(traceback.format_exc())  # This will print the full error traceback to help debug
+
+    def xor_encrypt_decrypt(self, data, key):
+        """XOR encryption/decryption method."""
+        return ''.join(chr(ord(c) ^ ord(key[i % len(key)])) for i, c in enumerate(data))
 
     def on_treeview_double_click(self, event):
-        """Handle double-clicking a macro in the Treeview."""
         selected_item = self.tree.selection()
         if selected_item:
             button_name = self.tree.item(selected_item, "values")[0]
             self.update_active_button(button_name=button_name)
 
-            if button_name in self.macros:
-                macro = self.macros[button_name]
-                self.value_entry.delete(0, tk.END)
-                self.value_entry.insert(0, macro["value"])
-                self.text_entry.delete(0, tk.END)
-                self.text_entry.insert(0, macro["text"])
-                self.set_modifier(macro["modifier"])
-
-            # Highlight the selected row in red
-            for item in self.tree.get_children():
-                self.tree.item(item, tags=("unselected",))
-            self.tree.item(selected_item, tags=("selected",))
-            self.tree.tag_configure("selected", background="red")
-            self.tree.tag_configure("unselected", background="white")
-
-
 def main():
     root = tk.Tk()
     app = MacroManagerApp(root)
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()

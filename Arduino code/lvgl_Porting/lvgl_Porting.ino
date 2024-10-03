@@ -50,7 +50,12 @@ char buttonValues[12][200];  // Assuming values might be longer
 #define USB_SEL 5
 USBHIDKeyboard Keyboard;
 const int buttonPin = 0;  // input pin for pushbutton
+#define RXD2 15
+#define TXD2 16
+const int slaveConnectionPin = 6;  // GPIO pin on Master to detect Slave connection
+bool isSlaveConnected = false;     // Tracks whether the slave is connected
 
+int buttonState = 0;  // Store received button states
 #define SD_MOSI 11
 #define SD_CLK  12
 #define SD_MISO 13
@@ -63,8 +68,7 @@ ESP32WebServer server(80);
 #define servername "keyboard" //Define the name to your server... 
 bool   SD_present = false; //Controls if the SD card is present or not
 char nwMode = 0;
-TwoWire I2Ctwo = TwoWire(1);
-PCF8575 pcf8575(&I2Ctwo, 0x20);
+
 
 void handleModifier(const char* modifier, const char* value) {
   if (strcmp(modifier, "paste") == 0) {
@@ -93,10 +97,10 @@ void handleModifier(const char* modifier, const char* value) {
     delay(200);  // Allow time for the Windows + R to open the Run dialog
     Keyboard.releaseAll();
 
-    delay(300);  // Wait for the Run dialog to appear
+    delay(100);  // Wait for the Run dialog to appear
 
     Keyboard.println(value);  // Type the value (path)
-    delay(200);
+    delay(50);
 
     Keyboard.press(KEY_RETURN);  // Press Enter to execute the command
     delay(100);
@@ -255,17 +259,14 @@ void endProgram() {
 
 void setup()
 {
-//Serial.begin(115200);
+Serial.begin(9600);
   pinMode(GPIO_INPUT_IO_4, OUTPUT); 
+    pinMode(slaveConnectionPin, INPUT_PULLUP);  // Set the GPIO 6 pin to input mode
 
   Keyboard.begin();
   USB.begin();
 //Serial.println("Initialize IO expander");
-  I2Ctwo.begin(16,15,400000); // SDA pin 16, SCL pin 17, 400kHz frequency
-    for(int i=0;i<14;i++) {
-    pcf8575.pinMode(i, INPUT_PULLUP);
-  }
-  pcf8575.begin();
+
 
   /* Initialize IO expander */
   ESP_IOExpander *expander = new ESP_IOExpander_CH422G((i2c_port_t)I2C_MASTER_NUM, ESP_IO_EXPANDER_I2C_CH422G_ADDRESS_000, I2C_MASTER_SCL_IO, I2C_MASTER_SDA_IO);
@@ -333,15 +334,47 @@ readJsonFile(SD, "/button.json");
 void loop()
 {
 delay(1);
+if (digitalRead(slaveConnectionPin) == LOW) {
+   if (!isSlaveConnected) {
+      Serial.println("Slave connected. Initiating communication...");
+      // Slave is newly connected, send RGB values
+      
+      Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
+      delay(1000);
+      Serial2.println("0,0,150");  // Send the RGB data to the Slave via Serial2
+      isSlaveConnected = true;  // Update state to indicate that slave is connected
+    }
 
-for( int i=0; i<14; i++){
-     uint8_t val = pcf8575.digitalRead(i);
-  if (val==LOW) {
-    //Serial.print("KEY PRESSED: " );
-     //Serial.println(i);
-     handleModifier(buttonModifiers[i], buttonValues[i]);
+  if (Serial2.available() > 0) {
+    int buttonPressed = Serial2.read();  // Read the button number (1 to 12, or 0 for no press)
+
+    // Process the button number
+    if (buttonPressed > 0) {
+      Serial.print("Button ");
+      Serial.print(buttonPressed);
+       handleModifier(buttonModifiers[buttonPressed-1], buttonValues[buttonPressed-1buttonPressed-1]);
+      Serial.println(" is pressed.");
+    } else {
+      Serial.println("No button is pressed.");
+    }
   }
-  delay(50);
+
+
+
+
+   if (Serial.available()) {
+    String input = Serial.readStringUntil('\n');  // Read input until newline
+    processRGBInput(input);  // Process the input and send the RGB data to the Slave
+  }
+    }
+    else {
+    if (isSlaveConnected) {
+      // Slave has been disconnected
+      Serial.println("Slave disconnected. Resetting communication...");
+       Serial2.flush();  // Optional: clear any remaining data in the serial buffer
+         Serial2.end();
+      isSlaveConnected = false;  // Update state to indicate that slave is disconnected
+    }
   }
   
   if (nwMode == 1) {
@@ -349,9 +382,18 @@ for( int i=0; i<14; i++){
     //Serial.println("IDLE loop");
   }
 }
+void processRGBInput(String rgbData) {
+  // Ensure the format is correct (e.g., 255,0,0)
+  if (rgbData.indexOf(',') != -1 && rgbData.length() > 5) {
+    Serial2.print(rgbData + "\n");  // Send the RGB data to the Slave via Serial2
+    Serial.print("Sent RGB to Slave: ");
+    Serial.println(rgbData);   // Print the sent data for debugging
+  } else {
+    Serial.println("Invalid RGB format. Please enter in the format R,G,B");
+  }
 
 
-
+}
 void button1Pressed(lv_event_t * e)
 {
  handleModifier(buttonModifiers[0], buttonValues[0]);
