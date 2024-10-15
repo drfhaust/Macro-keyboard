@@ -32,9 +32,28 @@ void button10Pressed(lv_event_t * e);
 void button11Pressed(lv_event_t * e);
 void button12Pressed(lv_event_t * e);
 void wifiSwitchToggle(lv_event_t * e);
+void colorChange(lv_event_t * e);
 char buttonModifiers[12][20];
 char buttonValues[12][200];  // Assuming values might be longer
+int colors[][3] = {
+    {255, 0, 0},   // Red
+    {0, 255, 0},   // Green
+    {0, 0, 255},   // Blue
+    {255, 255, 0}, // Yellow
+    {0, 255, 255}, // Cyan
+    {255, 0, 255}, // Magenta
+    {192, 192, 192}, // Silver
+    {128, 128, 128}, // Gray
+    {0, 128, 0},   // Dark Green
+    {128, 0, 0},   // Maroon
+    {128, 0, 128}, // Purple
+    {0, 128, 128}, // Teal
+    {0, 0, 128},   // Navy
+    {255, 165, 0}, // Orange
+    {255, 192, 203} // Pink
+};
 
+int colorIndex = 0; // Global variable to keep track of the current color
 // Extend IO Pin define
 #define TP_RST 1
 #define LCD_BL 2
@@ -121,18 +140,21 @@ void handleModifier(const char* modifier, const char* value) {
   
 
 
+// Global variable to store the LED color in "R,G,B" format
+String ledColorString = "0,0,0";  // Default to black
+
 void readJsonFile(fs::FS &fs, const char *path) {
   // Open the JSON file from the SD card
   File file = fs.open(path);
   if (!file) {
-    //Serial.println("Failed to open file for reading");
+    Serial.println("Failed to open file for reading");
     return;
   }
 
   // Calculate the size of the file
   size_t size = file.size();
   if (size == 0) {
-    //Serial.println("File is empty");
+    Serial.println("File is empty");
     return;
   }
 
@@ -143,12 +165,12 @@ void readJsonFile(fs::FS &fs, const char *path) {
   file.readBytes(buf.get(), size);
 
   // Parse the JSON data
-  DynamicJsonDocument doc(4096); // Adjust size based on the JSON complexity
+  DynamicJsonDocument doc(4096);  // Adjust size based on the JSON complexity
   DeserializationError error = deserializeJson(doc, buf.get());
 
   if (error) {
-    //Serial.print("Failed to parse JSON: ");
-    //Serial.println(error.f_str());
+    Serial.print("Failed to parse JSON: ");
+    Serial.println(error.f_str());
     return;
   }
 
@@ -216,9 +238,27 @@ void readJsonFile(fs::FS &fs, const char *path) {
     }
   }
 
-  file.close();
-} 
+  // Handle the LED color part
+  if (doc.containsKey("ledColor")) {
+    JsonArray ledColorArray = doc["ledColor"];
 
+    if (ledColorArray.size() == 3) {  // Ensure it has three values
+      int red = ledColorArray[0];
+      int green = ledColorArray[1];
+      int blue = ledColorArray[2];
+
+      // Store the RGB values in a global string in "R,G,B" format
+      ledColorString = String(red) + "," + String(green) + "," + String(blue);
+
+      // Print the RGB values to the Serial port
+      Serial.println("LED Color: " + ledColorString);
+    } else {
+      Serial.println("Invalid LED color format");
+    }
+  }
+
+  file.close();
+}
 
 
 
@@ -228,7 +268,7 @@ void startWebServer() {
   //Set your preferred server name, if you use "mcserver" the address would be http://mcserver.local/
   if (!MDNS.begin(servername))
   {
-    //Serial.println(F("Error setting up MDNS responder!"));
+    Serial.println(F("Error setting up MDNS responder!"));
     ESP.restart();
   }
   server.on("/",         SD_dir);
@@ -239,7 +279,7 @@ void startWebServer() {
 
   server.begin();
   nwMode = 1;
-  //Serial.println("HTTP server started");
+  Serial.println("HTTP server started");
 }
 
 void endProgram() {
@@ -288,6 +328,7 @@ Serial.begin(9600);
   SPI.begin(SD_CLK, SD_MISO, SD_MOSI, SD_SS);
   if (!SD.begin()) {
     //Serial.println("Card Mount Failed");
+    
     SD_present = false;
     return;
   }
@@ -300,6 +341,7 @@ Serial.begin(9600);
   else
   {
     //Serial.println(F("Card initialised... file access enabled..."));
+   
     SD_present = true;
   } 
 
@@ -325,7 +367,7 @@ Serial.begin(9600);
 char full[50];
 strcpy(full, servername);    // Copy the servername to 'full'
   strcat(full, ".local");      // Concatenate ".local" to 'full'
-readJsonFile(SD, "/button.json");
+ readJsonFile(SD, "/button.json");
   lv_textarea_set_text(ui_TextArea3, "KeyboardAP");
   lv_textarea_set_text(ui_TextArea2, "password");
  lv_textarea_set_text(ui_TextArea1, full);
@@ -341,7 +383,12 @@ if (digitalRead(slaveConnectionPin) == LOW) {
       
       Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
       delay(1000);
-      Serial2.println("0,0,150");  // Send the RGB data to the Slave via Serial2
+  Serial2.print(colors[colorIndex][0]);
+  Serial2.print(",");
+  Serial2.print(colors[colorIndex][1]);
+  Serial2.print(",");
+  Serial2.println(colors[colorIndex][2]);
+
       isSlaveConnected = true;  // Update state to indicate that slave is connected
     }
 
@@ -382,6 +429,8 @@ if (digitalRead(slaveConnectionPin) == LOW) {
     //Serial.println("IDLE loop");
   }
 }
+
+
 void processRGBInput(String rgbData) {
   // Ensure the format is correct (e.g., 255,0,0)
   if (rgbData.indexOf(',') != -1 && rgbData.length() > 5) {
@@ -454,6 +503,24 @@ void button12Pressed(lv_event_t * e)
  handleModifier(buttonModifiers[11], buttonValues[11]);  // Corrected index
 }
 
+void colorChange(lv_event_t * e)
+{Serial.println("pressed");
+  // Print the current color in the format "R,G,B"
+  Serial2.print(colors[colorIndex][0]);
+  Serial2.print(",");
+  Serial2.print(colors[colorIndex][1]);
+  Serial2.print(",");
+  Serial2.println(colors[colorIndex][2]);
+
+  // Increment the index to move to the next color
+  colorIndex++;
+
+  // If the index reaches the end of the array, reset to 0
+  if (colorIndex >= sizeof(colors) / sizeof(colors[0])) {
+    colorIndex = 0;
+  }
+}
+
 void wifiSwitchToggle(lv_event_t * e)
 {
  if (lv_obj_has_state(ui_Switch1, LV_STATE_CHECKED)){
@@ -474,23 +541,23 @@ void SD_dir()
     //Action acording to post, dowload or delete, by MC 2022
     if (server.args() > 0 ) //Arguments were received, ignored if there are not arguments
     {
-      //Serial.println(server.arg(0));
+     Serial.println(server.arg(0));
 
       String Order = server.arg(0);
-      //Serial.println(Order);
+      Serial.println(Order);
 
       if (Order.indexOf("download_") >= 0)
       {
         Order.remove(0, 9);
         SD_file_download(Order);
-        //Serial.println(Order);
+        Serial.println(Order);
       }
 
       if ((server.arg(0)).indexOf("delete_") >= 0)
       {
         Order.remove(0, 7);
         SD_file_delete(Order);
-        //Serial.println(Order);
+        Serial.println(Order);
       }
     }
 
@@ -612,7 +679,7 @@ void handleFileUpload()
   {
     String filename = uploadfile.filename;
     if (!filename.startsWith("/")) filename = "/" + filename;
-    //Serial.print("Upload File Name: "); //Serial.println(filename);
+    Serial.print("Upload File Name: "); Serial.println(filename);
     SD.remove(filename);                         //Remove a previous version, otherwise data is appended the file again
     UploadFile = SD.open(filename, FILE_WRITE);  //Open the file for writing in SD (create it, if doesn't exist)
     filename = String();
@@ -626,7 +693,7 @@ void handleFileUpload()
     if (UploadFile)         //If the file was successfully created
     {
       UploadFile.close();   //Close the file again
-      //Serial.print("Upload Size: "); //Serial.println(uploadfile.totalSize);
+      Serial.print("Upload Size: "); Serial.println(uploadfile.totalSize);
       webpage = "";
       append_page_header();
       webpage += F("<h3>File was successfully uploaded</h3>");
@@ -652,7 +719,7 @@ void SD_file_delete(String filename)
     if (dataFile)
     {
       if (SD.remove("/" + filename)) {
-        //Serial.println(F("File deleted successfully"));
+        Serial.println(F("File deleted successfully"));
         webpage += "<h3>File '" + filename + "' has been erased</h3>";
         webpage += F("<a href='/'>[Back]</a><br><br>");
       }
