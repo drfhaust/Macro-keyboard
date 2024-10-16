@@ -1,4 +1,4 @@
-![image of the macro keyboard](/assets/images/IMG_3720.jpg)
+![image of the macro keyboard](https://github.com/drfhaust/Macro-keyboard/blob/main/IMG_3720.JPG
 # Macro Keyboard
 
 **Macro Keyboard with ESP32-S3**
